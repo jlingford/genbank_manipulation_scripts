@@ -16,14 +16,23 @@ from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from Bio import SeqIO
 from pathlib import Path
-from typing import TextIO
+from typing import TextIO, NamedTuple
 import argparse
 import gzip
 import sys
 
 
 # =================================================================
-def parse_args() -> argparse.Namespace:
+# CLI args
+# =================================================================
+class Args(NamedTuple):
+    indir: Path
+    outdir: Path
+    cpu: int
+    no_desc: bool
+
+
+def parse_args() -> Args:
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -31,10 +40,9 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "-i",
-        "--input_dir",
-        dest="input_dir",
+        "--indir",
         type=Path,
-        metavar="FILE",
+        metavar="DIR",
         required=True,
         help="Path to target directory containing all input Genbank files for conversion (.gbk or .gbff) [Required]",
     )
@@ -42,7 +50,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "-o",
         "--outdir",
-        dest="outdir",
         type=Path,
         metavar="DIR",
         required=False,
@@ -52,7 +59,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "-c",
         "--cpu",
-        dest="cpu",
         type=int,
         default=None,
         metavar="N",
@@ -62,7 +68,6 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--no_desc",
-        dest="no_desc",
         action="store_true",
         help="Write out fasta file with just the accession ID in the header, but no description",
     )
@@ -71,10 +76,9 @@ def parse_args() -> argparse.Namespace:
 
     # create default outdir from input dir
     if args.outdir is None:
-        input_parentdir = Path(args.input_dir)
-        args.outdir = input_parentdir
+        args.outdir = Path(args.input_dir)
 
-    return args
+    return Args(**vars(args))
 
 
 # =============================================================
@@ -90,7 +94,7 @@ def open_gz(file: Path) -> TextIO:
 def gbk_to_faa(
     genbank_file: Path,
     outdir: Path,
-    args: argparse.Namespace,
+    args: Args,
 ) -> None:
     """Reads Genbank file and writes to file
 
@@ -135,7 +139,7 @@ def main() -> None:
     args = parse_args()
 
     # get all input genbank files
-    gbk_files = sorted([f for f in Path(args.input_dir).glob("*.gb*") if f.is_file()])
+    gbk_files = sorted([f for f in Path(args.indir).glob("*.gb*") if f.is_file()])
 
     ############### PARALLEL PROCESSING ###################
 
