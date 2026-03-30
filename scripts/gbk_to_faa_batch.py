@@ -72,15 +72,17 @@ def parse_args() -> Args:
         help="Write out fasta file with just the accession ID in the header, but no description",
     )
 
-    args = parser.parse_args()
+    args = Args(**vars(parser.parse_args()))
 
     # create default outdir from input dir
     if args.outdir is None:
         args.outdir = Path(args.input_dir)
 
-    return Args(**vars(args))
+    return args
 
 
+# =============================================================
+# Util
 # =============================================================
 def open_gz(file: Path) -> TextIO:
     """Utility function: open file, even if it is gzipped"""
@@ -90,14 +92,17 @@ def open_gz(file: Path) -> TextIO:
         return open(file, "r")
 
 
+# =============================================================
+# Core functions
 # =================================================================
 def gbk_to_faa(
     genbank_file: Path,
     outdir: Path,
     args: Args,
 ) -> None:
-    """Reads Genbank file and writes to file
+    """Reads Genbank file and writes out protein CDS to fasta file
 
+    ---
     Args:
         genbank_file (Path): path to genbank_file
 
