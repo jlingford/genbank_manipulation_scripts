@@ -121,10 +121,7 @@ def themeing(args: Args) -> tuple[str, str]:
 
 
 # =============================================================================
-def process_data(
-    infile: Path,
-    outpath: Path,
-) -> pl.Dataframe:
+def process_data(infile: Path, outpath: Path, args: Args) -> pl.Dataframe:
     """Process raw data and return polars dataframe"""
     ############### create outpath ################
     outpath.parent.mkdir(parents=True, exist_ok=True)
@@ -146,6 +143,10 @@ def process_data(
     print(df)
 
     ############### write data #####################
+    name, _ = themeing(args=args)
+    outpath = Path(outpath.parent) / f"{outpath.stem}-{name}-histplot"
+    outpath.parent.mkdir(parents=True, exist_ok=True)
+
     df.write_csv(
         f"{outpath}_dataframe.tsv",
         separator="\t",
@@ -231,6 +232,10 @@ def plot(
         va="top",
     )
 
+    # add cutoff line
+    ax.axvline(x=10000, color="grey", linewidth=1, linestyle="--")
+
+    # spines and labels
     ax.spines["right"].set_visible(False)
     ax.spines["top"].set_visible(False)
     ax.spines["left"].set_visible(True)
@@ -277,7 +282,7 @@ def main() -> None:
     args = parse_args()
 
     # create dataframe
-    df = process_data(infile=args.infile, outpath=args.outpath)
+    df = process_data(infile=args.infile, outpath=args.outpath, args=args)
 
     # generate plot
     plot(df=df, outpath=args.outpath, args=args)
