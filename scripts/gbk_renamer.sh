@@ -7,7 +7,7 @@
 
 # path to target dir of .gbk files for clinker
 DIR_BASE=$1
-# path to HydDB classification output
+# path to HydDB classification output .tsv
 # NOTE: field 2 should be the HydDB group name
 GROUP_MAP=$2
 
@@ -28,7 +28,6 @@ for gbk in "${DIR_BASE}"/*.gbk; do
 
         # get the gene_id's corresponding HydDB group from DIAMOND output
         hydgroup=$(grep "$gene_id" "$GROUP_MAP" | cut -f2)
-        # species=$(grep "$genome_name" "$tax_map" | awk -F";" '{print $NF}' | sed 's/s__//' | sed 's/ /_/')
 
         # set new filename
         new_gbk_name="${hydgroup}___${genome_id}___${gene_id}.gbk"
