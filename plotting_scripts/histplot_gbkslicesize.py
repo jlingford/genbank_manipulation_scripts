@@ -190,6 +190,9 @@ def plot(
     xmin, xmax = 0, 25000
     bins = np.linspace(xmin, xmax, BINS + 1)
 
+    # size cutoff line to annotate on histplot
+    vline_cutoff = 10000
+
     ################## create plot ########################
     fig, ax = plt.subplots(
         nrows=1,
@@ -233,7 +236,7 @@ def plot(
     )
 
     # add cutoff line
-    ax.axvline(x=10000, color="grey", linewidth=1, linestyle="--")
+    ax.axvline(x=vline_cutoff, color="grey", linewidth=1, linestyle="--")
 
     # spines and labels
     ax.spines["right"].set_visible(False)
