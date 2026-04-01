@@ -19,14 +19,22 @@ Output:
 
 from Bio import SeqIO
 from pathlib import Path
-from typing import TextIO
+from typing import TextIO, NamedTuple
 import argparse
 import gzip
 import sys
 
 
 # =================================================================
-def parse_args() -> argparse.Namespace:
+# CLI args
+# =================================================================
+class Args(NamedTuple):
+    infile: Path
+    outdir: Path
+    add_desc: bool
+
+
+def parse_args() -> Args:
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -34,8 +42,8 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "-i",
-        "--input",
-        dest="input",
+        "--infile",
+        dest="infile",
         type=Path,
         metavar="FILE",
         required=True,
@@ -59,7 +67,7 @@ def parse_args() -> argparse.Namespace:
         help="Write out fasta file with the description in the header, after the accession ID",
     )
 
-    args = parser.parse_args()
+    args = Args(**vars(parser.parse_args()))
 
     # create default outdir from input dir
     if args.outdir is None:
@@ -82,7 +90,7 @@ def open_gz(file: Path) -> TextIO:
 def gbk_to_fna(
     genbank_file: Path,
     outdir: Path,
-    args: argparse.Namespace,
+    args: Args,
 ) -> None:
     """Reads Genbank file and writes to file
 
@@ -93,7 +101,7 @@ def gbk_to_fna(
         None: writes output .fna file that shares the same name as the input genbank_file
     """
     ############# make output file ###################
-    outfna = Path(outdir) / f"{args.input.stem}.fna"
+    outfna = Path(outdir) / f"{args.infile.stem}.fna"
     if outfna.exists():
         outfna.unlink()
     outfna.parent.mkdir(parents=True, exist_ok=True)
@@ -118,7 +126,7 @@ def gbk_to_fna(
 # =================================================================
 def main() -> None:
     args = parse_args()
-    gbk_to_fna(genbank_file=args.input, outdir=args.outdir, args=args)
+    gbk_to_fna(genbank_file=args.infile, outdir=args.outdir, args=args)
 
 
 if __name__ == "__main__":
