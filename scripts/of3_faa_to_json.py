@@ -60,16 +60,75 @@ Output:
 # TODO:
 # - [ ] add gzip .faa file reading?
 # - [ ] improve chain labels to be infinite?
-# - [ ] parse for identical sequences and make chain_ids a list[str]
-# - [ ] parse description for msa.a3m filepath info and add to msa field of dict
+# - [x] parse for identical sequences and make chain_ids a list[str]
+# - [~] parse description for msa.a3m filepath info and add to msa field of dict
 
 from Bio import SeqIO
 from pathlib import Path
 from typing import TextIO, NamedTuple
+from collections import defaultdict
 import argparse
 import gzip
 import sys
 import json
+
+
+# =============================================================================
+# CHAIN_LABELS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+CHAIN_LABELS = [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z",
+    "AA",
+    "AB",
+    "AC",
+    "AD",
+    "AE",
+    "AF",
+    "AG",
+    "AH",
+    "AI",
+    "AJ",
+    "AK",
+    "AL",
+    "AM",
+    "AN",
+    "AO",
+    "AP",
+    "AQ",
+    "AR",
+    "AS",
+    "AT",
+    "AU",
+    "AV",
+    "AW",
+    "AX",
+    "AY",
+    "AZ",
+]
 
 
 # =============================================================================
@@ -133,34 +192,49 @@ def faa_to_of3json(
     outpath = Path(outdir) / f"{input_faa.stem}.json"
     outdir.mkdir(parents=True, exist_ok=True)
 
-    ########### parse faa file ###########
+    ############# step 1 #################################
 
-    CHAIN_LABELS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    # collect chain info, combine identical chain seqs on the same key
+    uniqseqs = defaultdict(list)
+    msapaths = {}
+    metainfo = {}
 
-    chains_list = []
-
-    # create dict for each chain and add to list
     for i, rec in enumerate(SeqIO.parse(input_faa, "fasta")):
-        # set fresh dict each iteration
-        chain_dict = {}
-
-        # get vars
         chain_id = CHAIN_LABELS[i]
         desc = str(rec.description)
         seq = str(rec.seq)
+        msa = str(rec.description.split("|")[-1])
+
+        # update dicts
+        uniqseqs[seq].append(chain_id)
+        msapaths[seq] = msa
+        metainfo[seq] = desc
+
+    ############# step 2 #################################
+
+    # unpack info from dicts above on shared sequence, add to new chain_dict
+    # create dict for each chain and add to list
+    chains_list = []
+    for k in uniqseqs:
+        # set fresh dict each iteration!
+        chain_dict = {}
+
+        # if only one chain id per chain, make it a str instead of list
+        chain_id_format = uniqseqs[k][0] if len(uniqseqs[k]) == 1 else uniqseqs[k]
 
         # update dict fields
         chain_dict.update({"molecule_type": "protein"})
-        chain_dict.update({"chain_ids": chain_id})
-        chain_dict.update({"description": desc})
-        chain_dict.update({"sequence": seq})
+        chain_dict.update({"chain_ids": chain_id_format})
+        chain_dict.update({"description": metainfo[k]})
+        chain_dict.update({"main_msa_file_paths": msapaths[k]})
+        chain_dict.update({"sequence": k})
 
         # add it to list
         chains_list.append(chain_dict)
 
-    #############################################
-    # write chain chains_list to query dict
+    ############# step 3 #################################
 
+    # write chain chains_list to query dict
     # make the query_id the .faa filename
     query_id = f"{input_faa.stem}"
 
