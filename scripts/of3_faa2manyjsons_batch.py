@@ -70,6 +70,7 @@ import argparse
 import gzip
 import sys
 import json
+from collections import defaultdict
 
 
 # =============================================================================
@@ -134,6 +135,11 @@ def faa_to_of3json(
     outdir.mkdir(parents=True, exist_ok=True)
 
     ########### parse faa file ###########
+
+    # TODO:
+    uniqseqs = defaultdict(list)
+    for rec in SeqIO.parse(input_faa, "fasta"):
+        uniqseqs[str(rec.seq)].append(rec.id)
 
     CHAIN_LABELS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 

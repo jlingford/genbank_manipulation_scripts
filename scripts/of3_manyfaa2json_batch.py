@@ -60,8 +60,8 @@ Output:
 # TODO:
 # - [ ] add gzip .faa file reading?
 # - [ ] improve chain labels to be infinite?
-# - [ ] parse for identical sequences and make chain_ids a list[str]
-# - [ ] parse description for msa.a3m filepath info and add to msa field of dict
+# - [x] parse for identical sequences and make chain_ids a list[str]
+# - [x] parse description for msa.a3m filepath info and add to msa field of dict
 
 from Bio import SeqIO
 from pathlib import Path
@@ -177,7 +177,6 @@ def parse_args() -> Args:
 # =============================================================================
 def faa_to_of3json(
     input_faa: Path,
-    outpath: Path,
     args: Args,
 ) -> dict[str, dict]:
     """Converts protein fasta info to json format for OpenFold3
@@ -189,12 +188,8 @@ def faa_to_of3json(
         args (Args): other args
 
     Returns:
-        of3_query_dict (dict): dict of the fasta query
+        query_dict (dict): dict of the fasta query
     """
-    ########### set outfile #############
-    outpath = Path(outpath) / f"{input_faa.stem}.json"
-    outpath.mkdir(parents=True, exist_ok=True)
-
     ############# step 1 #################################
 
     # collect chain info, combine identical chain seqs on the same key
@@ -237,25 +232,13 @@ def faa_to_of3json(
 
     ############# step 3 #################################
 
-    # write chain chains_list to query dict
     # make the query_id the .faa filename
     query_id = f"{input_faa.stem}"
 
+    # construct dict for query id
     query_dict: dict[str, dict[str, list[Any]]] = {query_id: {"chains": chains_list}}
 
-    # # build openfold3 query dict
-    # of3_query_dict = {
-    #     "queries": {
-    #         query_id: {"chains": chains_list},
-    #     },
-    # }
-
     return query_dict
-
-    ############## write json #################
-
-    # with open(outpath, "w") as outfile:
-    #     json.dump(of3_query_dict, outfile)
 
 
 # =============================================================================
@@ -275,7 +258,7 @@ def main() -> None:
     # append each query dict on top of each other, where each key is the faa file name
     queries = {}
     for faa in faa_files:
-        new_query = faa_to_of3json(input_faa=faa, outpath=args.outpath, args=args)
+        new_query = faa_to_of3json(input_faa=faa, args=args)
         queries.update(new_query)
 
     # combine all queries into the of3 dict
