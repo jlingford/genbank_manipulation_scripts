@@ -65,7 +65,8 @@ Output:
 
 from Bio import SeqIO
 from pathlib import Path
-from typing import TextIO, NamedTuple
+from collections import defaultdict
+from typing import TextIO, NamedTuple, Any
 import argparse
 import gzip
 import sys
@@ -73,11 +74,69 @@ import json
 
 
 # =============================================================================
+# CHAIN_LABELS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+CHAIN_LABELS = [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z",
+    "AA",
+    "AB",
+    "AC",
+    "AD",
+    "AE",
+    "AF",
+    "AG",
+    "AH",
+    "AI",
+    "AJ",
+    "AK",
+    "AL",
+    "AM",
+    "AN",
+    "AO",
+    "AP",
+    "AQ",
+    "AR",
+    "AS",
+    "AT",
+    "AU",
+    "AV",
+    "AW",
+    "AX",
+    "AY",
+    "AZ",
+]
+
+
+# =============================================================================
 # CLI args
 # =============================================================================
 class Args(NamedTuple):
-    infile: Path
-    outdir: Path
+    indir: Path
+    outpath: Path
 
 
 def parse_args() -> Args:
@@ -88,7 +147,7 @@ def parse_args() -> Args:
 
     parser.add_argument(
         "-i",
-        "--infile",
+        "--indir",
         type=Path,
         metavar="FILE",
         required=True,
@@ -97,7 +156,7 @@ def parse_args() -> Args:
 
     parser.add_argument(
         "-o",
-        "--outdir",
+        "--outpath",
         type=Path,
         required=False,
         default=".",
@@ -107,6 +166,9 @@ def parse_args() -> Args:
 
     args = Args(**vars(parser.parse_args()))
 
+    if not args.indir.is_dir():
+        parser.error("Error: input must be a target directory of fasta files")
+
     return args
 
 
@@ -115,66 +177,85 @@ def parse_args() -> Args:
 # =============================================================================
 def faa_to_of3json(
     input_faa: Path,
-    outdir: Path,
+    outpath: Path,
     args: Args,
-) -> None:
+) -> dict[str, dict]:
     """Converts protein fasta info to json format for OpenFold3
 
     ---
     Args:
         input_faa (Path): path to .faa file
-        outdir (Path): path to output dir
+        outpath (Path): path to output dir
         args (Args): other args
 
     Returns:
-        None: Writes out .json file
+        of3_query_dict (dict): dict of the fasta query
     """
     ########### set outfile #############
-    outpath = Path(outdir) / f"{input_faa.stem}.json"
-    outdir.mkdir(parents=True, exist_ok=True)
+    outpath = Path(outpath) / f"{input_faa.stem}.json"
+    outpath.mkdir(parents=True, exist_ok=True)
 
-    ########### parse faa file ###########
+    ############# step 1 #################################
 
-    CHAIN_LABELS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    # collect chain info, combine identical chain seqs on the same key
+    uniqseqs = defaultdict(list)
+    msapaths = {}
+    metainfo = {}
 
-    chains_list = []
-
-    # create dict for each chain and add to list
     for i, rec in enumerate(SeqIO.parse(input_faa, "fasta")):
-        # set fresh dict each iteration
-        chain_dict = {}
-
-        # get vars
         chain_id = CHAIN_LABELS[i]
         desc = str(rec.description)
         seq = str(rec.seq)
+        msa = str(rec.description.split("|")[-1])
+
+        # update dicts
+        uniqseqs[seq].append(chain_id)
+        msapaths[seq] = msa
+        metainfo[seq] = desc
+
+    ############# step 2 #################################
+
+    # unpack info from dicts above on shared sequence, add to new chain_dict
+    # create dict for each chain and add to list
+    chains_list = []
+    for k in uniqseqs:
+        # set fresh dict each iteration!
+        chain_dict = {}
+
+        # if only one chain id per chain, make it a str instead of list
+        chain_id_format = uniqseqs[k][0] if len(uniqseqs[k]) == 1 else uniqseqs[k]
 
         # update dict fields
         chain_dict.update({"molecule_type": "protein"})
-        chain_dict.update({"chain_ids": chain_id})
-        chain_dict.update({"description": desc})
-        chain_dict.update({"sequence": seq})
+        chain_dict.update({"chain_ids": chain_id_format})
+        chain_dict.update({"description": metainfo[k]})
+        chain_dict.update({"main_msa_file_paths": msapaths[k]})
+        chain_dict.update({"sequence": k})
 
         # add it to list
         chains_list.append(chain_dict)
 
-    #############################################
-    # write chain chains_list to query dict
+    ############# step 3 #################################
 
+    # write chain chains_list to query dict
     # make the query_id the .faa filename
     query_id = f"{input_faa.stem}"
 
-    # build openfold3 query dict
-    of3_query_dict = {
-        "queries": {
-            query_id: {"chains": chains_list},
-        },
-    }
+    query_dict: dict[str, dict[str, list[Any]]] = {query_id: {"chains": chains_list}}
+
+    # # build openfold3 query dict
+    # of3_query_dict = {
+    #     "queries": {
+    #         query_id: {"chains": chains_list},
+    #     },
+    # }
+
+    return query_dict
 
     ############## write json #################
 
-    with open(outpath, "w") as outfile:
-        json.dump(of3_query_dict, outfile)
+    # with open(outpath, "w") as outfile:
+    #     json.dump(of3_query_dict, outfile)
 
 
 # =============================================================================
@@ -188,8 +269,25 @@ def main() -> None:
     # get args
     args = parse_args()
 
-    # func
-    faa_to_of3json(input_faa=args.infile, outdir=args.outdir, args=args)
+    # get input fasta files in target dir
+    faa_files = sorted([f for f in Path(args.indir).glob("*.fa*") if f.is_file()])
+
+    # append each query dict on top of each other, where each key is the faa file name
+    queries = {}
+    for faa in faa_files:
+        new_query = faa_to_of3json(input_faa=faa, outpath=args.outpath, args=args)
+        queries.update(new_query)
+
+    # combine all queries into the of3 dict
+    all_queries = {"queries": queries}
+
+    # write json
+    of3_json_outpath = (
+        Path(args.outpath.parent)
+        / f"{args.outpath.stem.removesuffix('.json')}.json"  # remove any suffix incase user added one, and add it back
+    )
+    with open(of3_json_outpath, "w") as of:
+        json.dump(all_queries, of)
 
 
 # =============================================================================
