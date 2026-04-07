@@ -161,7 +161,7 @@ def parse_args() -> Args:
         required=False,
         default=".",
         metavar="DIR",
-        help="Output target directory [Optional][Default: cwd]",
+        help="Output target directory [Optional][Default: ./name_of_input_file.json]",
     )
 
     args = Args(**vars(parser.parse_args()))
@@ -189,7 +189,7 @@ def faa_to_of3json(
         None: Writes out .json file
     """
     ########### set outfile #############
-    outpath = Path(outdir) / f"{input_faa.stem}.json"
+    outpath = Path(outdir) / f"{input_faa.stem.removesuffix('.json')}.json"
     outdir.mkdir(parents=True, exist_ok=True)
 
     ############# step 1 #################################

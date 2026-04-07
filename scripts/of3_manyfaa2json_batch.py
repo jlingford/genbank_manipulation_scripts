@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Convert protein fasta file to OpenFold3 formatted query .json file for inference
+Converts a directory of protein fasta files to a single OpenFold3 formatted query .json file for inference
 
 OF3 requires a .json input in this format:
 
@@ -49,11 +49,10 @@ Output:
         - .json file named after the input .faa file
 
 \033[1m\033[31mTip:\033[0m
-    Run in parallel with:
-
-        `parallel faa_to_of3json.py -i {} ::: *.faa`
 
 \033[1m\033[31mWARNING:\033[0m
+    - make sure each input .fasta file has a unique name, this will be the query ID in the .json outfile
+    - make sure each directory of .fasta files has a unique name, as this dir name will become the name of the .json outfile
     ...
 
 """
@@ -62,10 +61,12 @@ Output:
 # - [ ] improve chain labels to be infinite?
 # - [x] parse for identical sequences and make chain_ids a list[str]
 # - [x] parse description for msa.a3m filepath info and add to msa field of dict
+# - [ ] improve outpath writing and defaults
 
 from Bio import SeqIO
 from pathlib import Path
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import TextIO, NamedTuple, Any
 import argparse
 import gzip
@@ -134,7 +135,9 @@ CHAIN_LABELS = [
 # =============================================================================
 # CLI args
 # =============================================================================
-class Args(NamedTuple):
+# class Args(NamedTuple):
+@dataclass()
+class Args:
     indir: Path
     outpath: Path
 
@@ -159,15 +162,20 @@ def parse_args() -> Args:
         "--outpath",
         type=Path,
         required=False,
-        default=".",
         metavar="DIR",
-        help="Output target directory [Optional][Default: cwd]",
+        help="Output target directory [Default: path/to/inputdir/name_of_inputdir.json]",
     )
 
     args = Args(**vars(parser.parse_args()))
 
     if not args.indir.is_dir():
         parser.error("Error: input must be a target directory of fasta files")
+
+    # TODO: fix
+    # create default outdir from input dir
+    if args.outpath is None:
+        input_parentdir = Path(args.indir.parent)
+        args.outpath = input_parentdir
 
     return args
 
@@ -264,13 +272,17 @@ def main() -> None:
     # combine all queries into the of3 dict
     all_queries = {"queries": queries}
 
-    # write json
+    # set outpath
     of3_json_outpath = (
-        Path(args.outpath.parent)
-        / f"{args.outpath.stem.removesuffix('.json')}.json"  # remove any suffix incase user added one, and add it back
+        Path(args.outpath)
+        / f"{args.indir.stem.removesuffix('.json')}.json"  # remove any suffix incase user added one, and add it back
     )
+    of3_json_outpath.parent.mkdir(parents=True, exist_ok=True)
+    # write json
     with open(of3_json_outpath, "w") as of:
         json.dump(all_queries, of)
+
+    print(f"OpenFold3 .json query file written to: {of3_json_outpath}")
 
 
 # =============================================================================
