@@ -32,6 +32,7 @@ from Bio.SeqFeature import SeqFeature, FeatureLocation
 from Bio.SeqFeature import SimpleLocation
 from Bio.SeqRecord import SeqRecord
 from pathlib import Path
+from dataclasses import dataclass
 import argparse
 import sys
 import warnings
@@ -43,9 +44,20 @@ warnings.filterwarnings("ignore")
 
 
 # =======================================================================
-def parse_args() -> argparse.Namespace:
+@dataclass
+class Args:
+    target_gene: str
+    genbank_input: Path
+    outdir: Path
+    upstream: int
+    downstream: int
+    not_clinker_safe: bool
+
+
+def parse_args() -> Args:
     parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     parser.add_argument(
@@ -109,7 +121,7 @@ def parse_args() -> argparse.Namespace:
         help="Default behaviour redefines gene coordinates and removes any genes that overlap with upstream/downstream boundaries. This is ideal for `clinker`, but maybe not for `gggenes`. This flag turns this behaviour off.",
     )
 
-    args = parser.parse_args()
+    args = Args(**vars(parser.parse_args()))
 
     return args
 
@@ -118,7 +130,7 @@ def parse_args() -> argparse.Namespace:
 def find_target_location(
     gbk_file: Path,
     target_gene: str,
-    args: argparse.Namespace,
+    args: Args,
 ) -> tuple[SeqRecord, SimpleLocation]:
     """Finds target gene in Genbank and returns its location coordinates and the contig its on (i.e., "feature")
 
@@ -161,7 +173,7 @@ def slice_genbank(
     outdir: Path,
     upstream: int,
     downstream: int,
-    args: argparse.Namespace,
+    args: Args,
 ) -> None:
     """Slice a Genbank file into a smaller region surrounding a target gene
 
